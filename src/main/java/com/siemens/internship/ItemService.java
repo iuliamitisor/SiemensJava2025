@@ -4,19 +4,29 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+
+// TODO: analyze & improve error handling, use of system resources
+
+/*
+    DONE:
+     - Changed return type of processItemsAsync() to CompletableFuture<List<Item>> to allow asynchronous processing,
+      since Spring cannot handle List<> asynchronously (the method ran on the main thread instead of
+      a separate one like expected).
+     - Kept processingCount, but as AtomicInteger to make it thread-safe.
+     - Made use of CompletableFuture.supplyAsync instead of making multiple runAsync calls in a loop, in order
+     to easily collect all items in a List<Item> after processing.
+     - Removed manual ExecutorService and allowed usage of @Async task executors.
+ */
 
 @Service
 public class ItemService {
     @Autowired
     private ItemRepository itemRepository;
-    private static ExecutorService executor = Executors.newFixedThreadPool(10);
-    private List<Item> processedItems = new ArrayList<>();
-    private int processedCount = 0;
-
+    private AtomicInteger processedCount = new AtomicInteger(0);
 
     public List<Item> findAll() {
         return itemRepository.findAll();
@@ -34,54 +44,43 @@ public class ItemService {
         itemRepository.deleteById(id);
     }
 
-
-    /**
-     * Your Tasks
-     * Identify all concurrency and asynchronous programming issues in the code
-     * Fix the implementation to ensure:
-     * All items are properly processed before the CompletableFuture completes
-     * Thread safety for all shared state
-     * Proper error handling and propagation
-     * Efficient use of system resources
-     * Correct use of Spring's @Async annotation
-     * Add appropriate comments explaining your changes and why they fix the issues
-     * Write a brief explanation of what was wrong with the original implementation
-     *
-     * Hints
-     * Consider how CompletableFuture composition can help coordinate multiple async operations
-     * Think about appropriate thread-safe collections
-     * Examine how errors are handled and propagated
-     * Consider the interaction between Spring's @Async and CompletableFuture
-     */
     @Async
-    public List<Item> processItemsAsync() {
-
+    public CompletableFuture<List<Item>> processItemsAsync() {
+        // Retrieve IDs from database
+        // REMARK: though itemRepository is accessed by multiple threads, JpaRepository implementations are thread-safe.
         List<Long> itemIds = itemRepository.findAllIds();
 
-        for (Long id : itemIds) {
-            CompletableFuture.runAsync(() -> {
-                try {
-                    Thread.sleep(100);
-
-                    Item item = itemRepository.findById(id).orElse(null);
-                    if (item == null) {
-                        return;
+        List<CompletableFuture<Item>> futures = itemIds.stream()
+                // Map each ID to a CompletableFuture
+                .map(id -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        Thread.sleep(100); // Simulate processing
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException("Processing interrupted for item " + id, ie);
                     }
 
-                    processedCount++;
-
+                    // Fetch item or throw exception if not found
+                    Item item = itemRepository.findById(id)
+                            .orElseThrow(() -> new IllegalStateException("Item " + id + " not found"));
+                    // Update status of fetched item
                     item.setStatus("PROCESSED");
-                    itemRepository.save(item);
-                    processedItems.add(item);
+                    processedCount.addAndGet(1);
 
-                } catch (InterruptedException e) {
-                    System.out.println("Error: " + e.getMessage());
-                }
-            }, executor);
-        }
+                    // Save updates
+                    return itemRepository.save(item);
+                }))
+                .toList();
 
-        return processedItems;
+        // Merge all into one  of processed items
+        CompletableFuture<Void> allDone = CompletableFuture
+                .allOf(futures.toArray(new CompletableFuture[0]));
+
+        // Return sequential stream to complete all or propagate exception
+        return allDone.thenApply(v ->
+                futures.stream()
+                        .map(CompletableFuture::join) // Join to wait for completion
+                        .toList()
+        );
     }
-
 }
-

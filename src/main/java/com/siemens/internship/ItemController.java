@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/api/items")
@@ -22,19 +23,21 @@ public class ItemController {
         return new ResponseEntity<>(itemService.findAll(), HttpStatus.OK);
     }
 
+    // Perform email validation here using @Valid; added corresponding validation dependency in pom.xml
+    // Switched BAD_REQUEST and CREATED, since the usage was incorrect.
     @PostMapping
     public ResponseEntity<Item> createItem(@Valid @RequestBody Item item, BindingResult result) {
         if (result.hasErrors()) {
-            return new ResponseEntity<>(null, HttpStatus.CREATED);
+            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
         }
-        return new ResponseEntity<>(itemService.save(item), HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(itemService.save(item), HttpStatus.CREATED);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Item> getItemById(@PathVariable Long id) {
         return itemService.findById(id)
                 .map(item -> new ResponseEntity<>(item, HttpStatus.OK))
-                .orElse(new ResponseEntity<>(HttpStatus.NO_CONTENT));
+                .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND)); // Modified to return NOT_FOUND instead of NO_CONTENT
     }
 
     @PutMapping("/{id}")
@@ -42,20 +45,28 @@ public class ItemController {
         Optional<Item> existingItem = itemService.findById(id);
         if (existingItem.isPresent()) {
             item.setId(id);
-            return new ResponseEntity<>(itemService.save(item), HttpStatus.CREATED);
+            return new ResponseEntity<>(itemService.save(item), HttpStatus.OK); // Modified to return OK instead of CREATED
         } else {
-            return new ResponseEntity<>(HttpStatus.ACCEPTED);
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND); // Modified to return NOT_FOUND instead of ACCEPTED, when the item is not present
         }
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteItem(@PathVariable Long id) {
         itemService.deleteById(id);
-        return new ResponseEntity<>(HttpStatus.CONFLICT);
+        return new ResponseEntity<>(HttpStatus.OK); // Modified to return OK instead of CONFLICT in case of success
     }
 
+    // Refactored to use CompletableFuture and return correct Status Codes
     @GetMapping("/process")
-    public ResponseEntity<List<Item>> processItems() {
-        return new ResponseEntity<>(itemService.processItemsAsync(), HttpStatus.OK);
+    public CompletableFuture<ResponseEntity<List<Item>>> processItems() {
+        return itemService.processItemsAsync()
+                .thenApply(list ->
+                        new ResponseEntity<>(list, HttpStatus.OK)
+                )
+                .exceptionally(ex ->
+                        new ResponseEntity<>(HttpStatus.BAD_REQUEST)
+                );
     }
+
 }
