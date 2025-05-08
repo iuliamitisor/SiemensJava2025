@@ -23,6 +23,13 @@ public class ItemController {
         return new ResponseEntity<>(itemService.findAll(), HttpStatus.OK);
     }
 
+    /*
+        DONE:
+        - Added @Valid annotation to validate the item object.
+        - Corrected usage of HTTP status codes.
+        - Added exception handlers for returning status codes in case of errors.
+     */
+
     // Perform email validation here using @Valid; added corresponding validation dependency in pom.xml
     // Switched BAD_REQUEST and CREATED, since the usage was incorrect.
     @PostMapping
@@ -47,7 +54,8 @@ public class ItemController {
             item.setId(id);
             return new ResponseEntity<>(itemService.save(item), HttpStatus.OK); // Modified to return OK instead of CREATED
         } else {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND); // Modified to return NOT_FOUND instead of ACCEPTED, when the item is not present
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND); // Modified to return NOT_FOUND instead of ACCEPTED,
+                                                               // when the item is not present
         }
     }
 
@@ -69,4 +77,13 @@ public class ItemController {
                 );
     }
 
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<String> handleException(Exception e) {
+        return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<String> handleIllegalState(IllegalStateException e) {
+        return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+    }
 }
