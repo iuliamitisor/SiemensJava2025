@@ -98,7 +98,7 @@ class InternshipApplicationTests {
 
 	@Test
 	void shouldThrowExceptionWhenItemNotFound() {
-		Item item = new Item();
+ 		Item item = new Item();
 		item.setName("Item to delete");
 		item.setStatus("UNPROCESSED");
 		Item savedItem = itemService.save(item);

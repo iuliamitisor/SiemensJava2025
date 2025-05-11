@@ -7,9 +7,8 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
-
-// TODO: further ensure no synchronization issues occur
 
 /*
     DONE:
@@ -95,10 +94,20 @@ public class ItemService {
                 .allOf(futures.toArray(new CompletableFuture[0]));
 
         // Return sequential stream to complete all or propagate exception
-        return allDone.thenApply(v ->
-                futures.stream()
-                        .map(CompletableFuture::join) // Wait for all futures to complete
-                        .toList()
-        );
+        return allDone.thenApply(v -> {
+            try {
+                return futures.stream()
+                        .map(CompletableFuture::join) 
+                        .toList();
+            } catch (CompletionException ex) {
+                Throwable cause = ex.getCause();
+                if (cause instanceof RuntimeException) {
+                    throw (RuntimeException) cause;
+                } else {
+                    throw new IllegalStateException("Unexpected exception during item processing", cause);
+                }
+            }
+        });
+
     }
 }

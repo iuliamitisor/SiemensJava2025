@@ -65,15 +65,12 @@ public class ItemController {
         return new ResponseEntity<>(HttpStatus.OK); // Modified to return OK instead of CONFLICT in case of success
     }
 
-    // Refactored to use CompletableFuture and return correct Status Codes
+    // Refactored to use CompletableFuture and return correct Status Code
     @GetMapping("/process")
     public CompletableFuture<ResponseEntity<List<Item>>> processItems() {
         return itemService.processItemsAsync()
                 .thenApply(list ->
                         new ResponseEntity<>(list, HttpStatus.OK)
-                )
-                .exceptionally(ex ->
-                        new ResponseEntity<>(HttpStatus.BAD_REQUEST)
                 );
     }
 
