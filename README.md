@@ -1,39 +1,26 @@
-## Hi there 👋
+## Siemens Java Internship - Refactored CRUD & Async Processing Application
 
+This repository contains a refactored Spring Boot application originally created for the Siemens Java Internship program. The project implements a basic CRUD system with additional asynchronous processing logic for item entities. This version improves upon the initial submission by fixing logic flaws and applying best practices.
 
-## Siemens Java Internship - Code Refactoring Project
+---
 
-This repository contains a Spring Boot application that implements a simple CRUD system with some asynchronous processing capabilities. The application was created by a development team in a hurry and while it implements all required features, the code quality needs significant improvement.
+## 🔧 Key Improvements Made
 
-## Getting Started
-- Clone this repository
-- Import the project into your IDE as a Maven project (Java 17, might work with other Java versions as well)
-- Study the existing code and identify issues
-- Implement your refactoring changes
-- Test thoroughly to ensure functionality is preserved
+### ✅ General Enhancements
+- Added **exception handling** across the service and controller layers to ensure meaningful error messages and proper HTTP status codes.
+- Implemented **validation** on item creation using `@Valid` and resolved issues related to incorrect HTTP responses.
+- Improved code readability and maintainability through **concise documentation** and method refactoring.
+- Moved source files into appropriate **layered packages** (`controller`, `service`, `repository`, `model`) for cleaner **project structure and separation of concerns**.
 
-## Your Assignment
-  The Project should have the following structure:
+### ✅ `ItemService.java`
+- Changed return type of `processItemsAsync()` to `CompletableFuture<List<Item>>` for true asynchronous behavior.
+- Replaced manual `ExecutorService` logic with Spring’s `@Async` annotation for cleaner async task execution.
+- Used `CompletableFuture.supplyAsync()` in conjunction with streams to process items in parallel and collect results efficiently.
+- Replaced primitive counter with `AtomicInteger` for thread-safe tracking of processed items.
+- Added `IllegalStateException` checks for invalid IDs in `findById()` and `deleteById()`.
 
-![image](https://github.com/user-attachments/assets/ab45f225-ff1f-4ff7-bbaa-3d5d0c21e7b1)
-
-ⓘ
-##  You will have to:
-1. Fix all logical errors while maintaining the same functionality
-2. Implement proper error handling and validation
-3. Be well-documented with clear, concise comments
-4. Write test functions with as much coverage as possible
-5. Make sure that the Status Codes used in Controller are correct
-6. Find a way to implement an email validation
-7. Refactor the **processItemsAsync** function
-    The **processItemsAsync** function is supposed to:
-      1. Asynchronously process EVERY item (retrieve from database, update status, and save)
-      2. Track which items were processed
-      3. Return a list when all items have been processed
-      4. Provide an accurate list of all successfully processed items
-      HINT: You are free to modify the function and variables as much as you want :)
-
-
-Copy the project and make the solution public on your personal GitHub.
-Provide us the GitHub URL via email.
-(Don't forget to make the repository PUBLIC 😁)
+### ✅ `ItemController.java`
+- Annotated item input with `@Valid` to perform built-in validation (including email validation via dependencies).
+- Ensured accurate usage of HTTP status codes like `CREATED`, `OK`, `BAD_REQUEST`, and `NOT_FOUND`.
+- Refactored `/process` endpoint to handle and return a `CompletableFuture` with the processed items list.
+- Implemented global exception handling to catch and respond with appropriate error messages.
